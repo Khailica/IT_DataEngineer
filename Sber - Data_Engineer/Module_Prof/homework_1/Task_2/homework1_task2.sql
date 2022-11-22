@@ -1,7 +1,7 @@
 
 --Создать таблицу XXXX_CLIENT (в соответствии с ER-диаграммой), кудазагрузить клиентов
 --и информацию о них с вкладки client
-CREATE TABLE de11tm.ykir_Client (
+CREATE TABLE IF NOT EXISTS de11tm.ykir_Client (
 	id integer PRIMARY KEY,
 	"name" varchar(64),
 	lastname varchar(64),
@@ -10,13 +10,10 @@ CREATE TABLE de11tm.ykir_Client (
 );
 
 
-/*
+
 -- вставляем из консоли от имени клиента
-\COPY de11tm.ykir_Client(id, name, lastname, locator_id, city)
-FROM
-'/Users/frank/Documents/LEARNING IT, Eng, עברית/IT Data Engineer/Courses/Sber - Data_Engineer/Module_Prof/homework_1/Task_2/client.csv'
-WITH DELIMITER ',' CSV HEADER;
-*/
+\COPY de11tm.ykir_Client(id, name, lastname, locator_id, city) FROM '/Users/frank/Documents/LEARNING IT, Eng, עברית/IT Data Engineer/Courses/Sber - Data_Engineer/Module_Prof/homework_1/Task_2/client.csv' WITH DELIMITER ',' CSV HEADER;
+
 
 
 --Переименовать столбец LASTNAME в LAST_NAME в таблице XXXX_CLIENT
@@ -29,28 +26,25 @@ ALTER TABLE de11tm.ykir_Client ALTER COLUMN city TYPE varchar(100);
 
 --Создать представление XXXX_V_MOSCOW_CLIENT и записать туда всех клиентов из Москвы на основе
 --созданной ранее таблицы CLIENT
-CREATE VIEW de11tm.ykir_v_moscow_client AS
+CREATE OR REPLACE VIEW de11tm.ykir_v_moscow_client AS
 	SELECT *
 	  FROM de11tm.ykir_client yc 
-	 WHERE city LIKE 'Москва';
+	 WHERE city = 'Москва';
 	
 	
 --Создать таблицу XXXX_CURRENCY_TYPES, куда загрузить данные с вкладки currency_types	
-CREATE TABLE de11tm.ykir_currency_types (
+CREATE TABLE IF NOT EXISTS de11tm.ykir_currency_types (
 	id integer PRIMARY KEY,
 	title varchar(16)
 );
 
 
 -- вставляем из консоли от имени клиента
-\COPY dde11tm.ykir_currency_types(id, title)
-FROM
-'/Users/frank/Documents/LEARNING IT, Eng, עברית/IT Data Engineer/Courses/Sber - Data_Engineer/Module_Prof/homework_1/Task_2/currency_types.csv'
-WITH DELIMITER ',' CSV HEADER;
+\COPY de11tm.ykir_currency_types(id, title) FROM '/Users/frank/Documents/LEARNING IT, Eng, עברית/IT Data Engineer/Courses/Sber - Data_Engineer/Module_Prof/homework_1/Task_2/currency_types.csv' WITH DELIMITER ',' CSV HEADER;
 
 
 
-CREATE TABLE de11tm.transactions (
+CREATE TABLE IF NOT EXISTS de11tm.ykir_transactions (
 	id int4 NULL,
 	client_id int4 NULL,
 	money_amount numeric(10, 2) NULL,
@@ -60,7 +54,7 @@ CREATE TABLE de11tm.transactions (
 
 --Создать представление XXXX_V_TRANSACTIONS, в которое вывести все рублевые
 --и долларовые транзакции на основе данных таблицы TRANSACTIONS (уже прогружена в нашу схему)
-CREATE VIEW ykir_v_transactions AS
+CREATE OR REPLACE VIEW ykir_v_transactions AS
 	SELECT *
 	  FROM de11tm.transactions
 	 WHERE currency_id IN (1, 2);
@@ -74,8 +68,22 @@ SELECT *
  	   AND (money_amount < 10 OR money_amount > 20000);
 
 --После всех изменений удаляем созданные объекты + объекты, созданные Вами на занятии
-DROP TABLE IF EXISTS ykir_car, ykir_car_model, ykir_client, ykir_currency_types, ykir_manager, ykir_sales CASCADE;
-DROP VIEW IF EXISTS ykir_v_moscow_client, ykir_v_transactions CASCADE; 
+ 	  
+TRUNCATE TABLE 
+			de11tm.ykir_client,
+			de11tm.ykir_currency_types,
+			de11tm.ykir_transactions CASCADE;	  
+TRUNCATE VIEW
+			de11tm.ykir_v_moscow_client,
+			de11tm.ykir_v_transactions CASCADE;
+
+DROP TABLE IF EXISTS 
+			de11tm.ykir_client,
+			de11tm.ykir_currency_types,
+			de11tm.ykir_transactions CASCADE;
+DROP VIEW IF EXISTS
+			de11tm.ykir_v_moscow_client,
+			de11tm.ykir_v_transactions CASCADE; 
 
 /*
 Что можно было сделать лучше и почему:
