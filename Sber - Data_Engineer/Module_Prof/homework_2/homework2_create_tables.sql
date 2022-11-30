@@ -88,6 +88,10 @@ DROP TABLE IF EXISTS
 			de11tm.ykir_transactions,
 			de11tm.ykir_locators,
 			de11tm.ykir_client CASCADE;	
+			
+DROP VIEW IF EXISTS
+			de11tm.flag_contact,
+			de11tm.amount_trans;
 
 
 
