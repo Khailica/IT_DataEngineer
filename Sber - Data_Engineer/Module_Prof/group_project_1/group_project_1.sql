@@ -38,43 +38,81 @@
 */
 
 TABLE de11tm.group_dim_client;
-TABLE de11tm.group_dim_client_address;
-TABLE de11tm.group_dict_address_type;
+TABLE de11tm.group_dim_client_address ORDER BY client_id;
 TABLE de11tm.group_dict_gender;
 TABLE de11tm.group_dict_education_level;
 TABLE de11tm.group_dict_family_status;
 
 
+
+
+-- адреса 
+WITH client_concat_address AS (
+     SELECT
+          dca.client_id
+     ,    dca.addr_type
+     ,    CASE
+               WHEN dca.region = dca.city THEN
+                    concat(
+                         'Город '
+                    ,    dca.city)
+               ELSE
+                    concat(
+                         dca.region, ' '
+                    ,    COALESCE(dca.region_type, 'Область'), ', '
+                    ,    CASE
+                              WHEN dca.district IS NOT NULL THEN 
+                                   concat(dca.district, ' район')
+                         END
+                    ,    CASE
+                              WHEN dca.city IS NOT NULL THEN
+                                   'город '
+                         END
+                    ,    dca.city
+                    ,    CASE
+                              WHEN dca.town IS NOT NULL THEN
+                                   concat(', ', dca.town_type, ' ', dca.town)
+                         END
+                         )
+          END AS "Адрес"
+     FROM
+         de11tm.group_dim_client_address dca
+)
 SELECT
-     dc.birth_dt AS "Дата рождения"
-,    EXTRACT(YEAR FROM age('2021-12-01', to_date(dc.birth_dt, 'DDMONYYY'))) AS "Возраст"
+     dc.client_id
+,    to_date(NULLIF(dc.birth_dt, 'NULL'), 'DDMONYYYY') AS "Дата рождения"
+,    EXTRACT(YEAR FROM age('2021-12-01', to_date(NULLIF(dc.birth_dt, 'NULL'), 'DDMONYYYY'))) AS "Возраст"
 ,    dc.region_code AS "Код региона"
---,    dca. AS "Адрес регистрации"
---,    dca. AS "Адрес проживания"
-,    dg.gender_nm AS "Пол"
-,    del.level_nm AS "Уровень образования"
-,    dfs.status_nm AS "Семейное положение"
+,    cca1."Адрес" AS "Адрес регистрации"
+,    cca2."Адрес" AS "Адрес проживания"
+,    COALESCE(dg.gender_nm, 'Нет данных') AS "Пол"
+,    COALESCE(del.level_nm, 'Нет данных') AS "Уровень образования"
+,    COALESCE(dfs.status_nm, 'Нет данных') AS "Семейное положение"
 ,    dc.fullseniority_year_cnt AS "Рабочий стаж"
 --,    AS "Доля жизни клиента, которую он работал"
 ,    dc.staff_flg AS "Является ли сотрудником Банка"
-,    dc.name_change_year AS "Кол-во лет изменения имени"
+,    EXTRACT(YEAR FROM age('2021-12-01', to_date(CAST(dc.name_change_year AS TEXT),  'YYYY'))) AS "Кол-во лет изменения имени"
 FROM
   de11tm.group_dim_client AS dc
 JOIN
-  de11tm.group_dim_client_address AS dca
-    ON dca.client_id = dc.client_id
+  client_concat_address AS cca1
+    ON cca1.client_id = dc.client_id AND 
+    cca1.addr_type = 1
 JOIN
-  de11tm.group_dict_address_type AS dat
-    ON dat.address_code = dca.addr_type
-JOIN
+  client_concat_address AS cca2
+    ON cca2.client_id = dc.client_id AND 
+    cca2.addr_type = 2
+LEFT JOIN
   de11tm.group_dict_gender AS dg
     ON dg.gender_code = dc.gender_code
-JOIN
+LEFT JOIN
   de11tm.group_dict_education_level AS del
     ON del.level_code = dc.education_level_code
-JOIN
+LEFT JOIN
   de11tm.group_dict_family_status AS dfs
-    ON dfs.status_code = dc.family_status_code;
+    ON dfs.status_code = dc.family_status_code
+ORDER BY
+     dc.client_id;
      
 
 
