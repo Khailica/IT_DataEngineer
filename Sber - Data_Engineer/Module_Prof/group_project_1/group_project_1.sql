@@ -71,7 +71,7 @@ WITH client_concat_address AS (
                                    )
                          END
                     )
-          END "Адрес"
+          END AS "Адрес"
      FROM
           de11tm.group_dim_client_address dca
 )
@@ -93,23 +93,23 @@ SELECT
 ,    dc.staff_flg
 ,    date_part('year', age('2021-12-01', to_date(dc.name_change_year::text, 'YYYY'))) AS last_nm_change_year_cnt
 FROM
-     de11tm.group_dim_client dc
+     de11tm.group_dim_client AS dc
 LEFT JOIN
-     client_concat_address cca1
+     client_concat_address AS cca1
           ON cca1.client_id = dc.client_id AND
           cca1.addr_type = 1
 LEFT JOIN
-     client_concat_address cca2
+     client_concat_address AS cca2
           ON cca2.client_id = dc.client_id AND
           cca2.addr_type = 2
 LEFT JOIN
-     de11tm.group_dict_gender dg
+     de11tm.group_dict_gender AS dg
           ON dg.gender_code = dc.gender_code
 LEFT JOIN
-     de11tm.group_dict_education_level del
+     de11tm.group_dict_education_level AS del
           ON del.level_code = dc.education_level_code
 LEFT JOIN
-     de11tm.group_dict_family_status dfs
+     de11tm.group_dict_family_status AS dfs
           ON dfs.status_code = dc.family_status_code
 ORDER BY
      dc.client_id;
