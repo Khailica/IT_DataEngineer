@@ -37,14 +37,6 @@
 Наименование полей в финальной витрине должно соответствовать наименованию полей в файле ‘Групповой_проект_Наименование_полей.xlsx’
 */
 
-TABLE de11tm.group_dim_client;
-TABLE de11tm.group_dim_client_address ORDER BY client_id;
-TABLE de11tm.group_dict_gender;
-TABLE de11tm.group_dict_education_level;
-TABLE de11tm.group_dict_family_status;
-
-
-
 
 -- адреса 
 WITH client_concat_address AS (
@@ -53,15 +45,15 @@ WITH client_concat_address AS (
      ,    dca.addr_type
      ,    CASE
                WHEN dca.region = dca.city THEN
-                    concat(
-                         'Город '
-                    ,    dca.city)
+                    concat('Город ', dca.city)
                ELSE
                     concat(
-                         dca.region, ' '
-                    ,    COALESCE(dca.region_type, 'Область'), ', '
+                         dca.region
+                    ,    ' '
+                    ,    coalesce(dca.region_type, 'Область')
+                    ,    ', '
                     ,    CASE
-                              WHEN dca.district IS NOT NULL THEN 
+                              WHEN dca.district IS NOT NULL THEN
                                    concat(dca.district, ' район')
                          END
                     ,    CASE
@@ -71,46 +63,54 @@ WITH client_concat_address AS (
                     ,    dca.city
                     ,    CASE
                               WHEN dca.town IS NOT NULL THEN
-                                   concat(', ', dca.town_type, ' ', dca.town)
+                                   concat(
+                                        ', '
+                                   ,    dca.town_type
+                                   ,    ' '
+                                   ,    dca.town
+                                   )
                          END
-                         )
-          END AS "Адрес"
+                    )
+          END "Адрес"
      FROM
-         de11tm.group_dim_client_address dca
+          de11tm.group_dim_client_address dca
 )
 SELECT
      dc.client_id
-,    to_date(NULLIF(dc.birth_dt, 'NULL'), 'DDMONYYYY') AS "Дата рождения"
-,    EXTRACT(YEAR FROM age('2021-12-01', to_date(NULLIF(dc.birth_dt, 'NULL'), 'DDMONYYYY'))) AS "Возраст"
-,    dc.region_code AS "Код региона"
-,    cca1."Адрес" AS "Адрес регистрации"
-,    cca2."Адрес" AS "Адрес проживания"
-,    COALESCE(dg.gender_nm, 'Нет данных') AS "Пол"
-,    COALESCE(del.level_nm, 'Нет данных') AS "Уровень образования"
-,    COALESCE(dfs.status_nm, 'Нет данных') AS "Семейное положение"
-,    dc.fullseniority_year_cnt AS "Рабочий стаж"
---,    AS "Доля жизни клиента, которую он работал"
-,    dc.staff_flg AS "Является ли сотрудником Банка"
-,    EXTRACT(YEAR FROM age('2021-12-01', to_date(CAST(dc.name_change_year AS TEXT),  'YYYY'))) AS "Кол-во лет изменения имени"
+,    to_date(nullif(dc.birth_dt, 'NULL'), 'DDMONYYYY') AS birth_dt
+,    date_part('year', age('2021-12-01', to_date(nullif(dc.birth_dt, 'NULL'), 'DDMONYYYY'))) AS "age"
+,    dc.region_code
+,    cca1."Адрес" AS reg_addr
+,    cca2."Адрес" AS fact_addr
+,    coalesce(dg.gender_nm, 'Нет данных') AS gender_nm
+,    coalesce(del.level_nm, 'Нет данных') AS education_level_nm
+,    coalesce(dfs.status_nm, 'Нет данных') AS family_status_nm
+,    dc.fullseniority_year_cnt AS fullseniority_year_cnt
+,    round(
+          dc.fullseniority_year_cnt / EXTRACT(YEAR FROM age('2021-12-01', to_date(NULLIF(dc.birth_dt, 'NULL'), 'DDMONYYYY')))
+     ,    2
+     ) AS work_part_of_life_pct
+,    dc.staff_flg
+,    date_part('year', age('2021-12-01', to_date(dc.name_change_year::text, 'YYYY'))) AS last_nm_change_year_cnt
 FROM
-  de11tm.group_dim_client AS dc
-JOIN
-  client_concat_address AS cca1
-    ON cca1.client_id = dc.client_id AND 
-    cca1.addr_type = 1
-JOIN
-  client_concat_address AS cca2
-    ON cca2.client_id = dc.client_id AND 
-    cca2.addr_type = 2
+     de11tm.group_dim_client dc
 LEFT JOIN
-  de11tm.group_dict_gender AS dg
-    ON dg.gender_code = dc.gender_code
+     client_concat_address cca1
+          ON cca1.client_id = dc.client_id AND
+          cca1.addr_type = 1
 LEFT JOIN
-  de11tm.group_dict_education_level AS del
-    ON del.level_code = dc.education_level_code
+     client_concat_address cca2
+          ON cca2.client_id = dc.client_id AND
+          cca2.addr_type = 2
 LEFT JOIN
-  de11tm.group_dict_family_status AS dfs
-    ON dfs.status_code = dc.family_status_code
+     de11tm.group_dict_gender dg
+          ON dg.gender_code = dc.gender_code
+LEFT JOIN
+     de11tm.group_dict_education_level del
+          ON del.level_code = dc.education_level_code
+LEFT JOIN
+     de11tm.group_dict_family_status dfs
+          ON dfs.status_code = dc.family_status_code
 ORDER BY
      dc.client_id;
      
