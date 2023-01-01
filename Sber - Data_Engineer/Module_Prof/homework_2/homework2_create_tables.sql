@@ -4,35 +4,35 @@
 
 -- DROP TABLE de11tm.ykir_Currency_types;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_Currency_types (
-	id int4 NOT NULL,
-	title varchar(16) NULL,
+	id serial NOT NULL,
+	title varchar(16),
 	CONSTRAINT ykir_currency_types_pkey PRIMARY KEY (id)
 );
 
 
 -- DROP TABLE de11tm.ykir_Locators;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_Locators (
-	locator_id int4 NOT NULL,
-	phone_id varchar(20) NULL,
-	email varchar(64) NULL,
+	locator_id serial NOT NULL,
+	phone_id varchar(20),
+	email varchar(64),
 	CONSTRAINT ykir_locators_pkey PRIMARY KEY (locator_id)
 );
 
 
 -- DROP TABLE de11tm.ykir_Transactions;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_Transactions (
-	id int4 NOT NULL,
-	client_id int4 NULL,
+	id serial NOT NULL,
+	client_id integer,
 	money_amount numeric(10, 2) NULL,
-	currency_id int4 NULL,
+	currency_id integer,
 	CONSTRAINT ykir_transactions_pkey PRIMARY KEY (id)
 );
 
 
 -- DROP TABLE de11tm.ykir_Currency_exchange ;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_Currency_exchange (
-	id int4 NOT NULL,
-	to_currency_id int4 NULL,
+	id serial NOT NULL,
+	to_currency_id integer,
 	coeff_number numeric(5, 3) NULL
 );
 
@@ -40,11 +40,11 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_Currency_exchange (
 
 -- DROP TABLE de11tm.ykir_Client;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_Client (
-	id int4 NOT NULL,
-	"name" varchar(64) NULL,
-	lastname varchar(64) NULL,
-	locator_id int4 NULL,
-	city varchar(64) NULL,
+	id serial NOT NULL,
+	"name" varchar(64),
+	lastname varchar(64),
+	locator_id integer,
+	city varchar(64),
 	CONSTRAINT ykir_client_pkey PRIMARY KEY (id)
 );
 
@@ -74,24 +74,27 @@ ALTER TABLE de11tm.ykir_Client ADD CONSTRAINT ykir_Client_fk0 FOREIGN KEY (locat
 
 --После всех изменений удаляем созданные объекты
  	  
-TRUNCATE TABLE 
-			de11tm.ykir_currency_types,
-			de11tm.ykir_currency_exchange,
-			de11tm.ykir_transactions,
-			de11tm.ykir_locators,
-			de11tm.ykir_client CASCADE;	  
+TRUNCATE
+	de11tm.ykir_currency_types
+,	de11tm.ykir_currency_exchange
+,	de11tm.ykir_transactions
+,	de11tm.ykir_locators
+,	de11tm.ykir_client
+	CASCADE;	  
 
 
 DROP TABLE IF EXISTS 
-			de11tm.ykir_currency_types,
-			de11tm.ykir_currency_exchange,
-			de11tm.ykir_transactions,
-			de11tm.ykir_locators,
-			de11tm.ykir_client CASCADE;	
+	de11tm.ykir_currency_types
+,	de11tm.ykir_currency_exchange
+,	de11tm.ykir_transactions
+,	de11tm.ykir_locators
+,	de11tm.ykir_client
+	CASCADE;	
+		
 			
 DROP VIEW IF EXISTS
-			de11tm.flag_contact,
-			de11tm.amount_trans;
+	de11tm.flag_contact
+,	de11tm.amount_trans;
 
 
 

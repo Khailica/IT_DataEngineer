@@ -1,5 +1,5 @@
 
---Создать таблицу XXXX_CLIENT (в соответствии с ER-диаграммой), кудазагрузить клиентов
+--Создать таблицу XXXX_CLIENT (в соответствии с ER-диаграммой), куда загрузить клиентов
 --и информацию о них с вкладки client
 CREATE TABLE IF NOT EXISTS de11tm.ykir_Client (
 	id integer PRIMARY KEY,
@@ -73,9 +73,6 @@ TRUNCATE TABLE
 			de11tm.ykir_client,
 			de11tm.ykir_currency_types,
 			de11tm.ykir_transactions CASCADE;	  
-TRUNCATE VIEW
-			de11tm.ykir_v_moscow_client,
-			de11tm.ykir_v_transactions CASCADE;
 
 DROP TABLE IF EXISTS 
 			de11tm.ykir_client,
