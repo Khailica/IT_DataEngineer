@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_sales(
 ,    sale_date
           date
 ,    total_price
-          numeric
+          numeric(10, 2)
 ,    quantity
           integer
 ,    CONSTRAINT sales_pk 
