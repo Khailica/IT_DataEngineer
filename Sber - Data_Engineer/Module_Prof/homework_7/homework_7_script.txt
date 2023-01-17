@@ -1,0 +1,49 @@
+Задача 1.
+В домашней директории создайте каталог XXX_HW7_folder и переместитесь в него.
+Создайте в нем три файла, а также вложенный каталог inside.
+Скопируйте один файл из каталога XXX_HW7_folder в каталог inside, а два оставшихся - переместите в inside.
+Файл, оставшийся в каталоге XXX_HW7_folder, переименуйте.
+
+~% ssh de11tm@de-edu-etl.chronosavant.ru 
+
+de11tm@edu-etl:~$ cd ~
+de11tm@edu-etl:~$ mkdir ykir_HW7_folder
+de11tm@edu-etl:~$ cd ykir*
+de11tm@edu-etl:~/ykir_HW7_folder$ touch file1 file2 file3
+de11tm@edu-etl:~/ykir_HW7_folder$ mkdir inside
+de11tm@edu-etl:~/ykir_HW7_folder$ cp file1 inside
+de11tm@edu-etl:~/ykir_HW7_folder$ mv file2 file3 inside
+de11tm@edu-etl:~/ykir_HW7_folder$ mv file1 file1.txt
+
+
+
+Задача 2.
+Найдите среди первых 50 строк файла HW7_log1.txt (директория ~/HW7) логи, содержащие даты.
+И выведите все полученные строки в файл T2.txt, расположенный в XXX_HW7_folder.
+
+de11tm@edu-etl:~$ cd ~/HW7
+de11tm@edu-etl:~/HW7$ head -n 50 HW7_log1.txt > ykir_temp && grep -P '\d{2,4}-\d{2}-\d{2,4}' ykir_temp > ~/ykir_HW7_folder/T2.txt && rm ykir_temp
+
+Или как подсказал chatGPT:
+
+de11tm@edu-etl:~/HW7$ head -n 50 HW7_log1.txt | grep -P '\d{2,4}-\d{2}-\d{2,4}' > ~/ykir_HW7_folder/T2.txt
+
+
+
+Задача 3.
+В директории XXX_HW7_folder создайте исполняемый bash-скрипт T2.sh,
+который будет считать кол-во слов в файле HW7_log1.txt и выводить в консоль.
+
+
+
+
+Задача 4.
+В директории XXX_HW7_folder создайте файл HW7.cron, который формирует расписание исполнения файла T2.sh.
+Подсчет кол-ва слов должно происходить по средам в 20:07
+
+
+
+
+XXX – ваш уникальный код
+В гугл-класс необходимо прикрепить .txt файл со скриптами для каждой задачи и указанием номера задачи.
+При проверке домашнего задания могут быть также проверены артефакты, которые являются результатом работы скриптов.
