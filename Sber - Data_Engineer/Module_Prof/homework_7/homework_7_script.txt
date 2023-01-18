@@ -24,7 +24,7 @@ de11tm@edu-etl:~/ykir_HW7_folder$ mv file1 file1.txt
 de11tm@edu-etl:~$ cd ~/HW7
 de11tm@edu-etl:~/HW7$ head -n 50 HW7_log1.txt > ykir_temp && grep -P '\d{2,4}-\d{2}-\d{2,4}' ykir_temp > ~/ykir_HW7_folder/T2.txt && rm ykir_temp
 
-Или как подсказал chatGPT:
+Или:
 
 de11tm@edu-etl:~/HW7$ head -n 50 HW7_log1.txt | grep -P '\d{2,4}-\d{2}-\d{2,4}' > ~/ykir_HW7_folder/T2.txt
 
@@ -34,6 +34,14 @@ de11tm@edu-etl:~/HW7$ head -n 50 HW7_log1.txt | grep -P '\d{2,4}-\d{2}-\d{2,4}' 
 В директории XXX_HW7_folder создайте исполняемый bash-скрипт T2.sh,
 который будет считать кол-во слов в файле HW7_log1.txt и выводить в консоль.
 
+de11tm@edu-etl:~/ykir_HW7_folder$ touch T2.sh
+de11tm@edu-etl:~/ykir_HW7_folder$ chmod u+x T2.sh
+de11tm@edu-etl:~/ykir_HW7_folder$ nano T2.sh
+
+#!/bin/bash
+wc -w  ~/HW7/HW7_log1.txt
+
+de11tm@edu-etl:~/ykir_HW7_folder$ ./T2.sh
 
 
 
@@ -41,6 +49,9 @@ de11tm@edu-etl:~/HW7$ head -n 50 HW7_log1.txt | grep -P '\d{2,4}-\d{2}-\d{2,4}' 
 В директории XXX_HW7_folder создайте файл HW7.cron, который формирует расписание исполнения файла T2.sh.
 Подсчет кол-ва слов должно происходить по средам в 20:07
 
+de11tm@edu-etl:~/ykir_HW7_folder$ editor=nano crontab -e
+
+07 20 * * 3 /home/de11tm/ykir_HW7_folder/T2.sh >> /home/de11tm/ykir_HW7_folder/T2.cron
 
 
 
