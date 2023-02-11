@@ -1,0 +1,42 @@
+
+1. Создаём таблицы измерений в приёмнике:
+
+1.1 Из базы данных
+de11tm.ykir_dwh_dim_accounts_hist
+de11tm.ykir_dwh_dim_cards_hist
+de11tm.ykir_dwh_dim_clients_hist
+
+1.1 из excel-файлов
+de11tm.ykir_dwh_fact_terminals
+
+
+2. Таблицы фактов в приёмнике:
+
+2.1 из excel-файлов
+de11tm.ykir_dwh_fact_passport_blacklist
+
+2.2 из csv-файлов
+de11tm.ykir_dwh_fact_transactions
+
+
+3. Cтейджинговые таблицы:
+de11tm.ykir_stg_accounts_hist
+de11tm.ykir_stg_cards_hist
+de11tm.ykir_stg_clients_hist
+
+de11tm.ykir_stg_passport_blacklist
+de11tm.ykir_stg_transactions
+
+4. Таблицы метаданных:
+DE11TM.ykir_META_<TABLE_NAME>
+
+5. Таблица отчёта:
+de11tm.ykir_rep_fraud
+
+
+6. Загрузить 
+
+
+
+
+
