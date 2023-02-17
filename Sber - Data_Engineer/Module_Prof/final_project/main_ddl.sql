@@ -9,9 +9,9 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_dim_accounts_hist(
 ,    client
           varchar(10)
 ,    effective_from
-          timestamp(0)
+          timestamp
 ,    effective_to
-          timestamp(0)
+          timestamp
                DEFAULT '5999-12-31 00:00:00'
 ,    deleted_flg
           smallint
@@ -26,9 +26,9 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_dim_cards_hist(
 ,    account_num
           varchar(20)
 ,    effective_from
-          timestamp(0)
+          timestamp
 ,    effective_to
-          timestamp(0)
+          timestamp
                DEFAULT '5999-12-31 00:00:00'
 ,    deleted_flg
           smallint
@@ -55,9 +55,9 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_dim_clients_hist(
 ,    phone
           varchar(16)
 ,    effective_from
-          timestamp(0)
+          timestamp
 ,    effective_to
-          timestamp(0)
+          timestamp
                DEFAULT '5999-12-31 00:00:00'
 ,    deleted_flg
           smallint
@@ -76,9 +76,9 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_dim_terminals_hist(
 ,    terminal_address
           varchar(100)
 ,    effective_from
-          timestamp(0)
+          timestamp
 ,    effective_to
-          timestamp(0)
+          timestamp
                DEFAULT '5999-12-31 00:00:00'
 ,    deleted_flg
           smallint
@@ -89,31 +89,47 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_dim_terminals_hist(
 
 -- 2.Создаём таблицы фактов в приёмнике:
 
-DROP TABLE IF EXISTS de11tm.ykir_dwh_fact_passport_blacklist;
-CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_fact_passport_blacklist(
+DROP TABLE IF EXISTS de11tm.ykir_dwh_fact_passport_blacklist_hist;
+CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_fact_passport_blacklist_hist(
      passport_num
           varchar(15)
 ,    entry_dt
           date
+,    effective_from
+          timestamp
+,    effective_to
+          timestamp
+               DEFAULT '5999-12-31 00:00:00'
+,    deleted_flg
+          smallint
+               DEFAULT 0
 );
 
 
-DROP TABLE IF EXISTS de11tm.ykir_dwh_fact_transactions;
-CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_fact_transactions(
+DROP TABLE IF EXISTS de11tm.ykir_dwh_fact_transactions_hist;
+CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_fact_transactions_hist(
      trans_id
           varchar(20)
 ,    trans_date
-          timestamp(0)
+          timestamp
 ,    card_num
           varchar(20)
 ,    oper_type
-          varchar(7)
+          varchar(10)
 ,    amt
-          numeric(10,2)
+          varchar(15)
 ,    oper_result
           varchar(10)
 ,    terminal
           varchar(10)
+,    effective_from
+          timestamp
+,    effective_to
+          timestamp
+               DEFAULT '5999-12-31 00:00:00'
+,    deleted_flg
+          smallint
+               DEFAULT 0
 );
 
        
@@ -123,29 +139,29 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_fact_transactions(
           
 DROP TABLE IF EXISTS de11tm.ykir_stg_dim_accounts;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_dim_accounts(
-     account_num
+     account
           varchar(20)
 ,    valid_to
           date
 ,    client
           varchar(10)
 ,    create_dt
-          timestamp(0)
+          timestamp
 ,    update_dt
-          timestamp(0)
+          timestamp
 );
   
 
-DROP TABLE IF EXISTS de11tm.ykir_dwh_stg_dim_cards;
+DROP TABLE IF EXISTS de11tm.ykir_stg_dim_cards;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_dim_cards(
      card_num
           varchar(20)
-,    account_num
+,    account
           varchar(20)
 ,    create_dt
-          timestamp(0)
+          timestamp
 ,    update_dt
-          timestamp(0)
+          timestamp
 );
 
 
@@ -168,20 +184,9 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_dim_clients(
 ,    phone
           varchar(16)
 ,    create_dt
-          timestamp(0)
+          timestamp
 ,    update_dt
-          timestamp(0)
-);
-
-
-DROP TABLE IF EXISTS de11tm.ykir_stg_fact_passport_blacklist;
-CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_fact_passport_blacklist(
-     "date"
-          date
-,    passport
-          varchar(15)
-,    date_file
-          date
+          timestamp
 );
 
 
@@ -200,24 +205,31 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_dim_terminals(
 );
 
 
+DROP TABLE IF EXISTS de11tm.ykir_stg_fact_passport_blacklist;
+CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_fact_passport_blacklist(
+     "date" 
+          date
+,    passport
+          varchar(15)
+);
+
+
 DROP TABLE IF EXISTS de11tm.ykir_stg_fact_transactions;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_fact_transactions(
      transaction_id
           varchar(20)
 ,    transaction_date
-          timestamp(0)
+          timestamp
 ,    amount
-          numeric(10,2)
+          varchar(15)
 ,    card_num
           varchar(20)
 ,    oper_type
-          varchar(7)
+          varchar(10)
 ,    oper_result
           varchar(10)
 ,    terminal
           varchar(10)
-,    date_file
-          date
 );
 
 
@@ -226,43 +238,43 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_fact_transactions(
 DROP TABLE IF EXISTS de11tm.ykir_meta_dim_accounts;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_meta_dim_accounts(
      max_update_dt
-          timestamp(0)
+          timestamp
 );
 
 DROP TABLE IF EXISTS de11tm.ykir_meta_dim_cards;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_meta_dim_cards(
      max_update_dt
-          timestamp(0)
+          timestamp
 );
 
 DROP TABLE IF EXISTS de11tm.ykir_meta_dim_clients;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_meta_dim_clients(
      max_update_dt
-          timestamp(0)
+          timestamp
 );
 
 DROP TABLE IF EXISTS de11tm.ykir_meta_dim_clients;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_meta_dim_clients(
      max_update_dt
-          timestamp(0)
+          timestamp
 );
 
 DROP TABLE IF EXISTS de11tm.ykir_meta_dim_terminals;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_meta_dim_terminals(
      max_update_dt
-          timestamp(0)
+          timestamp
 );
 
 DROP TABLE IF EXISTS de11tm.ykir_meta_fact_passport_blacklist;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_meta_fact_passport_blacklist(
      max_update_dt
-          timestamp(0)
+          timestamp
 );
 
 DROP TABLE IF EXISTS de11tm.ykir_meta_fact_transactions;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_meta_fact_transactions(
      max_update_dt
-          timestamp(0)
+          timestamp
 );
 
 
@@ -270,43 +282,43 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_meta_fact_transactions(
 DROP TABLE IF EXISTS de11tm.ykir_stg_delete_dim_accounts;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_dim_accounts(
      max_update_dt
-          timestamp(0)
+          timestamp
 );
 
 DROP TABLE IF EXISTS de11tm.ykir_stg_delete_dim_cards;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_dim_cards(
      max_update_dt
-          timestamp(0)
+          timestamp
 );
 
 DROP TABLE IF EXISTS de11tm.ykir_stg_delete_dim_clients;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_dim_clients(
      max_update_dt
-          timestamp(0)
+          timestamp
 );
 
 DROP TABLE IF EXISTS de11tm.ykir_stg_delete_dim_clients;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_dim_clients(
      max_update_dt
-          timestamp(0)
+          timestamp
 );
 
 DROP TABLE IF EXISTS de11tm.ykir_stg_delete_dim_terminals;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_dim_terminals(
      max_update_dt
-          timestamp(0)
+          timestamp
 );
 
 DROP TABLE IF EXISTS de11tm.ykir_stg_delete_fact_passport_blacklist;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_fact_passport_blacklist(
      max_update_dt
-          timestamp(0)
+          timestamp
 );
 
 DROP TABLE IF EXISTS de11tm.ykir_stg_delete_fact_transactions;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_fact_transactions(
      max_update_dt
-          timestamp(0)
+          timestamp
 );
 
 
@@ -314,10 +326,12 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_fact_transactions(
 -- 5. Создаём таблицу отчёта:
 DROP TABLE IF EXISTS de11tm.ykir_rep_fraud;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_rep_fraud(
-     event_dt timestamp(0),
+     event_dt timestamp,
      passport varchar(15),
      fio varchar(60),
      phone varchar(16),
      event_type smallint,
      report_dt date
 );
+
+
