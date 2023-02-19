@@ -10,21 +10,16 @@ import datetime
 
 # указываем рабочий каталог
 dir_path = '/home/de11tm/ykir/project/'
-# dir_path = '/Users/frank/Documents/LEARNING IT, Eng, עברית/IT Data Engineer/Courses/Sber - Data_Engineer/Module_Prof/final_project/'
 
 # %%
 # Подключаемся к источнику - Database 'bank'
-conn_src = ps.connect(host = 'de-edu-db.chronosavant.ru',
+conn_src = ps.connect(
+    host = 'de-edu-db.chronosavant.ru',
     port=  '5432',
     database= 'bank',
     user= 'bank_etl',
-    password= 'bank_etl_password')
-
-# conn_src = ps.connect(host = 'localhost',
-#     port=  '5432',
-#     database= 'postgres',
-#     user= 'postgres',
-#     password= 'penthous')
+    password= 'bank_etl_password'
+)
 
 # %%
 # Подключаемся к приемнику - Database 'edu'
@@ -35,13 +30,6 @@ conn_tgt = ps.connect(
     user= 'de11tm',
     password= 'samwisegamgee'
 )
-# conn_tgt = ps.connect(
-#     host = 'localhost',
-#     port=  '5432',
-#     database= 'postgres',
-#     user= 'postgres',
-#     password= 'penthous'
-# )
 
 # %%
 # Отключаем autocommit в Database
@@ -133,11 +121,11 @@ FROM
 # %%
 # Чтение из источника bank.info.cards
 curs_src.execute("""SELECT
-	card_num
+	regexp_replace(card_num, '\s', '', 'g') AS card_num
 ,	account
 ,	create_dt
 ,	update_dt
-FROM 
+FROM
 	info.cards""")
 
 # Записываем данные в переменную
@@ -471,7 +459,7 @@ try:
 	SELECT
 		transaction_id
 	,	transaction_date
-	,	card_num
+	,	regexp_replace(card_num, '\s', '', 'g') AS card_num
 	,	oper_type
 	,	amount
 	,	oper_result

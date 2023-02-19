@@ -10,25 +10,17 @@ import datetime
 
 # указываем рабочий каталог
 dir_path = '/home/de11tm/ykir/project/'
-# dir_path = '/Users/frank/Documents/LEARNING IT, Eng, עברית/IT Data Engineer/Courses/Sber - Data_Engineer/Module_Prof/final_project/'
 
 
 # %%
 # Подключаемся к источнику - Database 'bank'
-conn_src = ps.connect(host = 'de-edu-db.chronosavant.ru',
+conn_src = ps.connect(
+    host = 'de-edu-db.chronosavant.ru',
     port=  '5432',
     database= 'bank',
     user= 'bank_etl',
     password= 'bank_etl_password'
 )
-
-# conn_src = ps.connect(
-#     host='localhost',
-#     port='5432',
-#     database='postgres',
-#     user='postgres',
-#     password='penthous'
-# )
 
 
 # %%
@@ -40,13 +32,6 @@ conn_tgt = ps.connect(
     user= 'de11tm',
     password= 'samwisegamgee'
 )
-# conn_tgt = ps.connect(
-#     host='localhost',
-#     port='5432',
-#     database='postgres',
-#     user='postgres',
-#     password='penthous'
-# )
 
 
 # %%
@@ -291,7 +276,7 @@ date_max_update_dt = curs_tgt.fetchall()
 
 # Забираем из таблицы-источника bank.info.accounts только новые строки для обработки
 curs_src.execute("""SELECT
-	card_num
+	regexp_replace(card_num, '\s', '', 'g') AS card_num
 ,	account
 ,	create_dt
 ,	update_dt
@@ -319,7 +304,7 @@ VALUES(%s, %s, %s, %s)""", df.values.tolist())
 
 # Подготавливаю все идентификаторы из таблицы-источника для обработки удаления
 curs_src.execute("""SELECT
-	card_num
+	regexp_replace(card_num, '\s', '', 'g') AS card_num
 ,	create_dt
 ,	update_dt	
 FROM
@@ -1051,7 +1036,7 @@ try:
 	SELECT
 		transaction_id
 	,	transaction_date
-	,	card_num
+	,	regexp_replace(card_num, '\s', '', 'g') AS card_num
 	,	oper_type
 	,	amount
 	,	oper_result
@@ -1102,48 +1087,55 @@ except NotADirectoryError as e:
 # ## 3. Создание отчёта
 
 # %%
-# Заблокированный паспорт + Просроченный паспорт 
+# 1. Совершение операции при просроченном или заблокированном паспорте
 curs_tgt.execute("""INSERT INTO de11tm.ykir_rep_fraud(
-     event_dt
-,    passport
-,    fio
-,    phone
-,    event_type
-,    report_dt
+	event_dt
+,	passport
+,	fio
+,	phone
+,	event_type
+,	report_dt
 )
 SELECT
-     trans.trans_date event_dt
-,    cl.passport_num passport
-,    cl.last_name || ' ' || cl.first_name || ' ' || cl.patronymic fio
-,    cl.phone phone
-,    '1' eventy_type
-,    trans.trans_date::date report_dt
+	trans.trans_date AS event_dt
+,	clients.passport_num AS passport
+,	concat(
+		last_name
+	,	' '
+	,	first_name
+	,	' '
+	,	patronymic
+	) AS fio
+,	clients.phone
+,	'1' AS event_type
+,	(
+		SELECT
+			max(trans_date)::date
+		FROM
+			de11tm.ykir_dwh_fact_transactions
+	) AS report_dt
 FROM
-     de11tm.ykir_dwh_fact_transactions trans
+	de11tm.ykir_dwh_fact_transactions AS trans
 JOIN
-     de11tm.ykir_dwh_dim_cards_hist cards
-          ON trans.card_num = cards.card_num
+	de11tm.ykir_dwh_dim_cards_hist AS cards
+		ON trans.card_num = cards.card_num
 JOIN
-     de11tm.ykir_dwh_dim_accounts_hist acc
-          ON cards.account_num = acc.account_num
+	de11tm.ykir_dwh_dim_accounts_hist AS accounts
+		ON cards.account_num = accounts.account_num
 JOIN
-     de11tm.ykir_dwh_dim_clients_hist cl
-          ON acc.client = cl.client_id
-LEFT JOIN
-     de11tm.ykir_dwh_fact_passport_blacklist pbl
-          ON cl.passport_num = pbl.passport_num
-LEFT JOIN
-     de11tm.ykir_dwh_dim_terminals_hist term
-          ON trans.terminal = term.terminal_id
+	de11tm.ykir_dwh_dim_clients_hist AS clients
+		ON accounts.client = clients.client_id
 WHERE
-     (
-          trans.oper_result = 'SUCCESS' AND
-          pbl.passport_num IS NOT NULL
-     ) OR
-     acc.valid_to < trans.trans_date::date""")
+	clients.passport_valid_to < trans.trans_date OR
+	clients.passport_num IN (
+		SELECT
+			passport_num
+		FROM
+			de11tm.ykir_dwh_fact_passport_blacklist
+	)""")
 
 # %%
-# Совершение операции при недействующем договоре 
+# 2. Совершение операции при недействующем договоре
 curs_tgt.execute("""INSERT INTO de11tm.ykir_rep_fraud(
      event_dt
 ,    passport
@@ -1153,35 +1145,43 @@ curs_tgt.execute("""INSERT INTO de11tm.ykir_rep_fraud(
 ,    report_dt
 )
 SELECT
-     trans.trans_date event_dt
-,    cl.passport_num passport
-,    cl.last_name || ' ' || cl.first_name || ' ' || cl.patronymic fio
-,    cl.phone phone
-,    '2' eventy_type
-,    trans.trans_date::date report_dt
+     trans.trans_date AS event_dt
+,    clients.passport_num AS passport
+,    concat(
+          last_name
+     ,    ' '
+     ,    first_name
+     ,    ' '
+     ,    patronymic
+     ) AS fio
+,    clients.phone
+,    '2' AS event_type
+,    (
+          SELECT
+               max(trans_date)::date
+          FROM
+               de11tm.ykir_dwh_fact_transactions
+     ) AS report_dt
 FROM
-     de11tm.ykir_dwh_fact_transactions trans
+     de11tm.ykir_dwh_fact_transactions AS trans
 JOIN
-     de11tm.ykir_dwh_dim_cards_hist cards
+     de11tm.ykir_dwh_dim_cards_hist AS cards
           ON trans.card_num = cards.card_num
 JOIN
-     de11tm.ykir_dwh_dim_accounts_hist acc
-          ON cards.account_num = acc.account_num
+     de11tm.ykir_dwh_dim_accounts_hist AS accounts
+          ON cards.account_num = accounts.account_num
 JOIN
-     de11tm.ykir_dwh_dim_clients_hist cl
-          ON acc.client = cl.client_id
-LEFT JOIN
-     de11tm.ykir_dwh_fact_passport_blacklist pbl
-          ON cl.passport_num = pbl.passport_num
-LEFT JOIN
-     de11tm.ykir_dwh_dim_terminals_hist term
-          ON trans.terminal = term.terminal_id
+     de11tm.ykir_dwh_dim_clients_hist AS clients
+          ON accounts.client = clients.client_id
 WHERE
      trans.oper_result = 'SUCCESS' AND
-     cl.passport_valid_to < trans.trans_date::date""")
+     (
+          clients.passport_valid_to < trans.trans_date::date OR
+          accounts.valid_to < trans.trans_date::date
+     )""")
 
 # %%
-# Совершение операций в разных городах в течении одного часа 
+# 3. Совершение операций в разных городах в течение одного часа 
 curs_tgt.execute("""INSERT INTO de11tm.ykir_rep_fraud(
      event_dt
 ,    passport
@@ -1190,57 +1190,60 @@ curs_tgt.execute("""INSERT INTO de11tm.ykir_rep_fraud(
 ,    event_type
 ,    report_dt
 )
-WITH tmp AS (
+WITH cte AS (
      SELECT
-          trans.trans_date event_dt
-     ,    cl.passport_num passport
-     ,    cl.last_name || ' ' || cl.first_name || ' ' || cl.patronymic fio
-     ,    cl.phone phone
-     ,    '3' eventy_type
-     ,    trans.trans_date::date report_dt
-     ,    trans.card_num
+          trans.trans_date AS event_dt
+     ,    clients.passport_num AS passport
+     ,    concat(
+               last_name
+          ,    ' '
+          ,    first_name
+          ,    ' '
+          ,    patronymic
+          ) AS fio
+     ,    clients.phone
+     ,    '3' event_type
+     ,    (
+               SELECT
+                    max(trans_date)::date
+               FROM
+                    de11tm.ykir_dwh_fact_transactions
+          ) AS report_dt
      ,    term.terminal_city
-     ,    lead(trans.trans_date) OVER(PARTITION BY trans.card_num ORDER BY trans.trans_date) team_next_trans
-     ,    lead(term.terminal_city) OVER(PARTITION BY trans.card_num ORDER BY trans.trans_date) city_next_trans
-     ,    lead(trans.trans_date) OVER(PARTITION BY trans.card_num) - trans.trans_date time_difference
+     ,    lag(term.terminal_city) OVER(PARTITION BY trans.card_num ORDER BY trans.trans_date) AS prev_city
+     ,    trans.trans_date - lag(trans.trans_date) OVER(PARTITION BY trans.card_num ORDER BY trans.trans_date) AS dt_diff
      FROM
-          de11tm.ykir_dwh_fact_transactions trans
-     JOIN
-          de11tm.ykir_dwh_dim_cards_hist cards
-               ON trans.card_num = cards.card_num
-     JOIN
-          de11tm.ykir_dwh_dim_accounts_hist acc
-               ON cards.account_num = acc.account_num
-     JOIN
-          de11tm.ykir_dwh_dim_clients_hist cl
-               ON acc.client = cl.client_id
+          de11tm.ykir_dwh_fact_transactions AS trans
      LEFT JOIN
-          de11tm.ykir_dwh_fact_passport_blacklist pbl
-               ON cl.passport_num = pbl.passport_num
-     LEFT JOIN
-          de11tm.ykir_dwh_dim_terminals_hist term
+          de11tm.ykir_dwh_dim_terminals_hist AS term
                ON trans.terminal = term.terminal_id
-     WHERE
-          trans.oper_result = 'SUCCESS'
+     LEFT JOIN
+          de11tm.ykir_dwh_dim_cards_hist AS cards
+               ON trans.card_num = cards.card_num
+     LEFT JOIN
+          de11tm.ykir_dwh_dim_accounts_hist AS accounts
+               ON cards.account_num = accounts.account_num
+     LEFT JOIN
+          de11tm.ykir_dwh_dim_clients_hist clients
+               ON accounts.client = clients.client_id
 )
 SELECT
-     min(team_next_trans) event_dt
+     event_dt
 ,    passport
 ,    fio
 ,    phone
-,    eventy_type
+,    event_type
 ,    report_dt
 FROM
-     tmp
+     cte
 WHERE
-     terminal_city <> city_next_trans AND
-     time_difference < '01:00:00'
-GROUP BY
-     passport
-,    fio
-,    phone
-,    eventy_type
-,    report_dt""")
+     terminal_city <> prev_city AND
+     dt_diff <= '01:00:00'""")
+
+# %%
+# 4. Попытка подбора суммы.
+# В течение 20 минут проходит более 3х операций со следующим шаблоном – каждая последующая меньше предыдущей,
+# при этом отклонены все кроме последней. Последняя операция (успешная) в такой цепочке считается мошеннической.
 
 # %%
 # выполняем транзакцию
