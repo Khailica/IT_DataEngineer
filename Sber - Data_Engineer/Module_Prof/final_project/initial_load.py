@@ -9,33 +9,39 @@ import glob #для работы cо списком файлов
 import datetime
 
 # указываем рабочий каталог
-# dir_path = '/home/de11tm/ykir/project/'
-dir_path = '/Users/frank/Documents/LEARNING IT, Eng, עברית/IT Data Engineer/Courses/Sber - Data_Engineer/Module_Prof/final_project/'
+dir_path = '/home/de11tm/ykir/project/'
+# dir_path = '/Users/frank/Documents/LEARNING IT, Eng, עברית/IT Data Engineer/Courses/Sber - Data_Engineer/Module_Prof/final_project/'
 
 # %%
 # Подключаемся к источнику - Database 'bank'
 conn_src = ps.connect(host = 'de-edu-db.chronosavant.ru',
-                        port=  '5432',
-                        database= 'bank',
-                        user= 'bank_etl',
-                        password= 'bank_etl_password')
+    port=  '5432',
+    database= 'bank',
+    user= 'bank_etl',
+    password= 'bank_etl_password')
+
+# conn_src = ps.connect(host = 'localhost',
+#     port=  '5432',
+#     database= 'postgres',
+#     user= 'postgres',
+#     password= 'penthous')
 
 # %%
 # Подключаемся к приемнику - Database 'edu'
-# conn_tgt = ps.connect(
-#     host = 'de-edu-db.chronosavant.ru',
-#     port=  '5432',
-#     database= 'edu',
-#     user= 'de11tm',
-#     password= 'samwisegamgee'
-# )
 conn_tgt = ps.connect(
-    host = 'localhost',
+    host = 'de-edu-db.chronosavant.ru',
     port=  '5432',
-    database= 'postgres',
-    user= 'postgres',
-    password= 'penthous'
+    database= 'edu',
+    user= 'de11tm',
+    password= 'samwisegamgee'
 )
+# conn_tgt = ps.connect(
+#     host = 'localhost',
+#     port=  '5432',
+#     database= 'postgres',
+#     user= 'postgres',
+#     password= 'penthous'
+# )
 
 # %%
 # Отключаем autocommit в Database
@@ -60,9 +66,10 @@ curs_tgt.execute("""delete from de11tm.ykir_stg_fact_transactions""")
 # ### 2. Захват данных из источника в STG и начальная загрузка в хранилище DWH
 # 
 
-# %%
-# Начальная загрузка для dim_accounts
+# %% [markdown]
+# #### 2.1 Начальная загрузка для dim_accounts
 
+# %%
 # Чтение из источника bank.info.accounts
 curs_src.execute("""SELECT
 	account
@@ -120,9 +127,10 @@ SELECT
 FROM
 	de11tm.ykir_stg_dim_accounts""")
 
-# %%
-# Начальная загрузка для dim_cards
+# %% [markdown]
+# #### 2.2 Начальная загрузка для dim_cards
 
+# %%
 # Чтение из источника bank.info.cards
 curs_src.execute("""SELECT
 	card_num
@@ -176,9 +184,10 @@ SELECT
 FROM
 	de11tm.ykir_stg_dim_cards""")
 
-# %%
-# Начальная загрузка для dim_clients
+# %% [markdown]
+# #### 2.3 Начальная загрузка для dim_clients
 
+# %%
 # Чтение из источника bank.info.clients
 curs_src.execute("""SELECT
 	client_id
@@ -256,9 +265,10 @@ SELECT
 FROM
 	de11tm.ykir_stg_dim_clients""")
 
-# %%
-# Начальная загрузка для dim_terminals
+# %% [markdown]
+# #### 2.4 Начальная загрузка для dim_terminals
 
+# %%
 # найдём файл terminals_NNNNNNNN.xlsx в каталоге
 filename = glob.glob(dir_path + 'data/terminals_*')
 
@@ -273,7 +283,7 @@ try:
 	# получение даты из имени файла
 	date = datetime.datetime.strptime(filename[-13:-5], '%d%m%Y').date()
 
-	# добавление поле с датой в dataframe
+	# добавление поля с датой в dataframe
 	df.insert(4, "date_file", date)
 
 	# Заливаем данные из dataframe в stg-таблицу
@@ -348,9 +358,10 @@ except NotADirectoryError as e:
 		f.write('больше одного файла terminals_NNNNNNNN.xlsx в каталоге' + '\n')
 		f.write('-'*50 + '\n')
 
-# %%
-# Начальная загрузка для fact_passport_blacklist
+# %% [markdown]
+# #### 2.5 Начальная загрузка для fact_passport_blacklist
 
+# %%
 # найдём файл passport_blacklist_NNNNNNNN.xlsx в каталоге
 filename = glob.glob(dir_path + 'data/passport_blacklist_*')
 
@@ -370,20 +381,13 @@ try:
 	VALUES(%s, %s)""", df.values.tolist())
 
 	# Заливаем данные из stg-таблицы в таблицу-приемник SCD2
-	curs_tgt.execute("""INSERT INTO de11tm.ykir_dwh_fact_passport_blacklist_hist(
+	curs_tgt.execute("""INSERT INTO de11tm.ykir_dwh_fact_passport_blacklist(
 		passport_num
 	,	entry_dt
-	,	effective_from
-	,	effective_to
 	)
 	SELECT
 		passport	
 	,	"date"
-	,	"date"::timestamp AS effective_from
-	,	coalesce(
-			lead("date") OVER(PARTITION BY passport ORDER BY "date") - '1 second'::interval
-		,	'5999-12-31 00:00:00'
-		) AS effective_to
 	FROM
 		de11tm.ykir_stg_fact_passport_blacklist""")
 
@@ -427,9 +431,10 @@ except NotADirectoryError as e:
 		f.write('больше одного файла passport_blacklist_NNNNNNNN.xlsx в каталоге' + '\n')
 		f.write('-'*50 + '\n')
 
-# %%
-# Начальная загрузка для fact_transactions
+# %% [markdown]
+# #### 2.6 Начальная загрузка для fact_transactions
 
+# %%
 # найдём файл transactions_NNNNNNNN.xlsx в каталоге
 filename = glob.glob(dir_path + 'data/transactions_*')
 
@@ -439,7 +444,7 @@ filename = ''.join(filename)
 # обрабатываем исключение, если файла в каталоге нет или их несколько
 try:
 	# формируем dataframe из Excel-файла
-	df = pd.read_csv(filename,sep = ';' )
+	df = pd.read_csv(filename,sep = ';', decimal = ',')
 
 	# Заливаем данные из dataframe в stg-таблицу
 	curs_tgt.executemany("""INSERT INTO de11tm.ykir_stg_fact_transactions(
@@ -451,10 +456,10 @@ try:
 	,	oper_result
 	,	terminal
 	)
-	VALUES(%s, %s, %s, %s, %s, %s, %s)""", df.values.tolist())
+	VALUES(%s, cast(%s AS timestamp), %s, %s, %s, %s, %s)""", df.values.tolist())
 
 	# Заливаем данные из stg-таблицы в таблицу-приемник SCD2
-	curs_tgt.execute("""INSERT INTO de11tm.ykir_dwh_fact_transactions_hist(
+	curs_tgt.execute("""INSERT INTO de11tm.ykir_dwh_fact_transactions(
 		trans_id
 	,	trans_date
 	,	card_num
@@ -462,8 +467,6 @@ try:
 	,	amt
 	,	oper_result
 	,	terminal
-	,	effective_from
-	,	effective_to
 	)
 	SELECT
 		transaction_id
@@ -473,11 +476,6 @@ try:
 	,	amount
 	,	oper_result
 	,	terminal
-	,	transaction_date::timestamp AS effective_from
-	,	coalesce(
-			lead(transaction_date) OVER(PARTITION BY transaction_id ORDER BY transaction_date) - '1 second'::interval
-		,	'5999-12-31 00:00:00'
-		) AS effective_to
 	FROM
 		de11tm.ykir_stg_fact_transactions""")
 

@@ -89,25 +89,17 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_dim_terminals_hist(
 
 -- 2.Создаём таблицы фактов в приёмнике:
 
-DROP TABLE IF EXISTS de11tm.ykir_dwh_fact_passport_blacklist_hist;
-CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_fact_passport_blacklist_hist(
+DROP TABLE IF EXISTS de11tm.ykir_dwh_fact_passport_blacklist;
+CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_fact_passport_blacklist(
      passport_num
           varchar(15)
 ,    entry_dt
           date
-,    effective_from
-          timestamp
-,    effective_to
-          timestamp
-               DEFAULT '5999-12-31 00:00:00'
-,    deleted_flg
-          smallint
-               DEFAULT 0
 );
 
 
-DROP TABLE IF EXISTS de11tm.ykir_dwh_fact_transactions_hist;
-CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_fact_transactions_hist(
+DROP TABLE IF EXISTS de11tm.ykir_dwh_fact_transactions;
+CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_fact_transactions(
      trans_id
           varchar(20)
 ,    trans_date
@@ -122,14 +114,6 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_dwh_fact_transactions_hist(
           varchar(10)
 ,    terminal
           varchar(10)
-,    effective_from
-          timestamp
-,    effective_to
-          timestamp
-               DEFAULT '5999-12-31 00:00:00'
-,    deleted_flg
-          smallint
-               DEFAULT 0
 );
 
        
@@ -234,7 +218,44 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_fact_transactions(
 
 
 
--- 4. Создаем таблицы метаданных:
+-- 4. Создаём стейджинг-таблицы для обработки удаления:
+
+DROP TABLE IF EXISTS de11tm.ykir_stg_delete_dim_accounts;
+CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_dim_accounts(
+     account_num
+          varchar(20)
+,    delete_dt
+          timestamp
+);
+
+DROP TABLE IF EXISTS de11tm.ykir_stg_delete_dim_cards;
+CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_dim_cards(
+     card_num
+          varchar(20)
+,    delete_dt
+          timestamp
+);
+
+DROP TABLE IF EXISTS de11tm.ykir_stg_delete_dim_clients;
+CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_dim_clients(
+     client_id
+          varchar(10)
+,    delete_dt
+          timestamp
+);
+
+DROP TABLE IF EXISTS de11tm.ykir_stg_delete_dim_terminals;
+CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_dim_terminals(
+     terminal_id
+          varchar(10)
+,    delete_dt
+          timestamp
+);
+
+
+
+-- 5. Создаем таблицы метаданных:
+
 DROP TABLE IF EXISTS de11tm.ykir_meta_dim_accounts;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_meta_dim_accounts(
      max_update_dt
@@ -279,59 +300,23 @@ CREATE TABLE IF NOT EXISTS de11tm.ykir_meta_fact_transactions(
 
 
 
-DROP TABLE IF EXISTS de11tm.ykir_stg_delete_dim_accounts;
-CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_dim_accounts(
-     max_update_dt
-          timestamp
-);
 
-DROP TABLE IF EXISTS de11tm.ykir_stg_delete_dim_cards;
-CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_dim_cards(
-     max_update_dt
-          timestamp
-);
+-- 6. Создаём таблицу отчёта:
 
-DROP TABLE IF EXISTS de11tm.ykir_stg_delete_dim_clients;
-CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_dim_clients(
-     max_update_dt
-          timestamp
-);
-
-DROP TABLE IF EXISTS de11tm.ykir_stg_delete_dim_clients;
-CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_dim_clients(
-     max_update_dt
-          timestamp
-);
-
-DROP TABLE IF EXISTS de11tm.ykir_stg_delete_dim_terminals;
-CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_dim_terminals(
-     max_update_dt
-          timestamp
-);
-
-DROP TABLE IF EXISTS de11tm.ykir_stg_delete_fact_passport_blacklist;
-CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_fact_passport_blacklist(
-     max_update_dt
-          timestamp
-);
-
-DROP TABLE IF EXISTS de11tm.ykir_stg_delete_fact_transactions;
-CREATE TABLE IF NOT EXISTS de11tm.ykir_stg_delete_fact_transactions(
-     max_update_dt
-          timestamp
-);
-
-
-
--- 5. Создаём таблицу отчёта:
 DROP TABLE IF EXISTS de11tm.ykir_rep_fraud;
 CREATE TABLE IF NOT EXISTS de11tm.ykir_rep_fraud(
-     event_dt timestamp,
-     passport varchar(15),
-     fio varchar(60),
-     phone varchar(16),
-     event_type smallint,
-     report_dt date
+     event_dt
+          timestamp
+,    passport
+          varchar(15)
+,    fio
+          varchar(60)
+,    phone
+          varchar(16)
+,    event_type
+          varchar(1)
+,    report_dt
+          date
 );
 
 
