@@ -697,233 +697,213 @@ FROM
 curs_tgt.execute("""delete from de11tm.ykir_stg_dim_terminals""")
 curs_tgt.execute("""delete from de11tm.ykir_stg_delete_dim_terminals""")
 
-# забираем из метаданных дату последнего обновления таблицы
-curs_tgt.execute("""SELECT
-	max(max_update_dt)
-FROM
-	de11tm.ykir_meta_dim_terminals""")
-
-# Записываем данные max_update_dt в переменную
-date_max_update_dt = curs_tgt.fetchall()
-
-
 # найдём файл terminals_NNNNNNNN.xlsx в каталоге
 filename = glob.glob(dir_path + 'data/terminals_*')
 
 # преобразование списка в строку
 filename = ''.join(filename)
 
-# обрабатываем исключение, если файла в каталоге нет или их несколько
-try:
-	# формируем dataframe из Excel-файла
-	df = pd.read_excel(filename)
+# формируем dataframe из Excel-файла
+df = pd.read_excel(filename)
 
-	# получение даты из имени файла
-	date = datetime.datetime.strptime(filename[-13:-5], '%d%m%Y').date()
+# получение даты из имени файла
+date_file = datetime.datetime.strptime(filename[-13:-5], '%d%m%Y')
 
-	# добавление поле с датой в dataframe
-	df.insert(4, "date_file", date)
+# добавление поле с датой в dataframe
+df.insert(4, "date_file", date_file)
 
-	# Заливаем данные из dataframe в stg-таблицу
-	curs_tgt.executemany("""INSERT INTO de11tm.ykir_stg_dim_terminals(
-			terminal_id
-		,	terminal_type
-		,	terminal_city
-		,	terminal_address
-		,	date_file
-		)
-		VALUES(%s, %s, %s, %s, %s)""", df.values.tolist())
+# %%
+# Заливаем данные из dataframe в stg-таблицу
+curs_tgt.executemany("""INSERT INTO de11tm.ykir_stg_dim_terminals(
+		terminal_id
+	,	terminal_type
+	,	terminal_city
+	,	terminal_address
+	,	date_file
+	)
+	VALUES(%s, %s, %s, %s, %s)""", df.values.tolist())
 	
 
-	# Подготавливаю все идентификаторы из таблицы-источника для обработки удаления
-	curs_tgt.execute("""SELECT
-		terminal_id
-	,	date_file	
-	FROM
-		de11tm.ykir_stg_dim_terminals""")
 
-	# Записываем данные в переменную
-	res = curs_src.fetchall()
+# Подготавливаю все идентификаторы из таблицы-источника для обработки удаления
+curs_tgt.execute("""SELECT
+	terminal_id
+,	date_file	
+FROM
+	de11tm.ykir_stg_dim_terminals""")
 
-	# Формируем датафрейм
-	names = [name[0] for name in curs_src.description]
-	df = pd.DataFrame(res, columns=names)
+# Записываем данные в переменную
+res = curs_tgt.fetchall()
 
+# Формируем датафрейм
+names = [name[0] for name in curs_tgt.description]
+df = pd.DataFrame(res, columns=names)
 
-	# Заливаем все идентификаторы из таблицы-источника для обработки удаления
-	curs_tgt.executemany("""INSERT INTO de11tm.ykir_stg_delete_dim_terminals(
-		terminal_id
-	,	delete_dt
-	)
-	VALUES(%s, %s)""", df.values.tolist())
+# %%
+# Заливаем все идентификаторы из таблицы-источника для обработки удаления
+curs_tgt.executemany("""INSERT INTO de11tm.ykir_stg_delete_dim_terminals(
+    terminal_id
+,	delete_dt) VALUES(%s, %s)""", df.values.tolist())
 
+# %%
+# Обработка INSERT таблицы dim_terminals
 
+# заливаем данные из stg-таблицы в таблицу-приемник SCD2
+curs_tgt.execute("""INSERT INTO de11tm.ykir_dwh_dim_terminals_hist(
+	terminal_id
+,	terminal_type
+,	terminal_city
+,	terminal_address
+,	effective_from
+,	effective_to
+)
+SELECT
+	stg.terminal_id
+,	stg.terminal_type
+,	stg.terminal_city
+,	stg.terminal_address
+,	date_file::timestamp effective_from
+,	coalesce(
+		lead(stg.date_file) OVER(PARTITION BY stg.terminal_id ORDER BY date_file) - '1 second'::interval
+	,	'5999-12-31 00:00:00'
+	) effective_to
+FROM
+	de11tm.ykir_stg_dim_terminals stg
+LEFT JOIN
+	de11tm.ykir_dwh_dim_terminals_hist tgt
+		ON stg.terminal_id = tgt.terminal_id AND
+		tgt.effective_to = '5999-12-31 00:00:00' AND
+		tgt.deleted_flg = '0'
+WHERE
+	tgt.terminal_id IS NULL""")
 
-	# Обработка INSERT таблицы dim_terminals
-
-	# заливаем данные из stg-таблицы в таблицу-приемник SCD2
-	curs_tgt.execute("""INSERT INTO de11tm.ykir_dwh_dim_terminals_hist(
-			terminal_id
-		,	terminal_type
-		,	terminal_city
-		,	terminal_address
-		,	effective_from
-		,	effective_to
-		)
-		SELECT
-			terminal_id
-		,	terminal_type
-		,	terminal_city
-		,	terminal_address
-		,	date_file::timestamp AS effective_from
-		,	coalesce(
-				lead(date_file) OVER(PARTITION BY terminal_id ORDER BY date_file) - '1 second'::interval
-			,	'5999-12-31 00:00:00'
-			) AS effective_to
-		FROM
-			de11tm.ykir_stg_dim_terminals""")
-
-
-
-	# Обработка UPDATE таблицы dim_terminals
-
-	curs_tgt.execute("""UPDATE
-		de11tm.ykir_dwh_dim_terminals_hist AS targ
-	SET
-		effective_to = tmp.date_file - '1second'::interval
-	FROM
-		(
-			SELECT
-				tgt.terminal_id
-			,	stg.date_file
-			,	tgt.effective_from
-			,	tgt.effective_to
-			FROM
-				de11tm.ykir_dwh_dim_terminals_hist AS tgt
-			JOIN
-				de11tm.ykir_stg_dim_terminals AS stg
-					ON tgt.terminal_id = stg.terminal_id
-			WHERE
-				tgt.effective_to = '5999-12-31 00:00:00' AND
-				tgt.effective_from < stg.date_file
-		) AS tmp
-	WHERE
-		targ.terminal_id = tmp.terminal_id AND
-		targ.effective_from = tmp.effective_from""")
-
-
-
-	# Обработка DELETE таблицы dim_terminals
-	# вставляем удалённые на источнике данные в таблицу-приемник SCD2
-
-	# создаём временную таблицу для удобства
-	curs_tgt.execute("""CREATE TEMPORARY TABLE row_del_terminals AS
+# %%
+# Обработка UPDATE таблицы dim_terminals
+curs_tgt.execute("""UPDATE
+	de11tm.ykir_dwh_dim_terminals_hist AS targ
+SET
+	effective_to = tmp.date_file - '1second'::interval
+FROM
+	(
 		SELECT
 			tgt.terminal_id
-		,    tgt.terminal_type
-		,    tgt.terminal_city
-		,    terminal_address
-		,    tgt.effective_from
-		,    current_timestamp AS time_delete
-		,    deleted_flg
+		,	stg.date_file
+		,	tgt.effective_from
+		,	tgt.effective_to
 		FROM
 			de11tm.ykir_dwh_dim_terminals_hist AS tgt
-		LEFT JOIN
-			de11tm.ykir_stg_delete_dim_terminals AS stg
-				ON tgt.terminal_id = stg.terminal_id AND
-				stg.delete_dt = tgt.effective_from
+		JOIN
+			de11tm.ykir_stg_dim_terminals AS stg
+				ON tgt.terminal_id = stg.terminal_id
 		WHERE
-			stg.terminal_id IS NULL""")
+			tgt.effective_to = '5999-12-31 00:00:00' AND
+			tgt.effective_from < stg.date_file AND
+			tgt.deleted_flg = '0'
+	) AS tmp
+WHERE
+	targ.terminal_id = tmp.terminal_id AND
+	targ.effective_from = tmp.effective_from""")
 
-	# обновляем effective_to удаляемой записи в таблице-приемнике SCD2
-	curs_tgt.execute("""UPDATE
-		de11tm.ykir_dwh_dim_terminals_hist AS targ
-	SET
-		effective_to = tmp.time_delete - '1second'::interval
-	FROM
-		(
-			SELECT
-				tgt.terminal_id
-			,    rd.time_delete
-			,    tgt.effective_from
-			,    tgt.effective_to
-			FROM
-				de11tm.ykir_dwh_dim_terminals_hist AS tgt
-			JOIN
-				row_del_terminals AS rd
-						ON rd.terminal_id = tgt.terminal_id
-			WHERE
-				tgt.effective_from < rd.time_delete
-		) AS tmp
-	WHERE
-		targ.terminal_id = tmp.terminal_id AND
-		targ.effective_from = tmp.effective_from""")
+# %%
+# Обработка DELETE таблицы dim_terminals
 
-	# вставляем удаляемую запись в таблицу-приемник SCD2
-	curs_tgt.execute("""INSERT INTO de11tm.ykir_dwh_dim_terminals_hist(
-		terminal_id
-	,	terminal_type
-	,	terminal_city
+# вставляем удалённые на источнике данные в таблицу-приемник SCD2
+# создаём временную таблицу для удобства
+curs_tgt.execute("""CREATE TEMPORARY TABLE row_del_terminals AS
+	SELECT
+		tgt.terminal_id
+	,	tgt.terminal_type
+	,	tgt.terminal_city
 	,	terminal_address
-	,	effective_from
-	,	effective_to
+	,	tgt.effective_from
+	,	tgt.effective_from + interval '1 day - 1 second' AS time_delete
 	,	deleted_flg
-	)
-	SELECT
-		terminal_id
-	,	terminal_type
-	,	terminal_city
+	FROM
+		de11tm.ykir_dwh_dim_terminals_hist AS tgt
+	LEFT JOIN
+		de11tm.ykir_stg_delete_dim_terminals AS stg
+			ON tgt.terminal_id = stg.terminal_id AND
+			stg.delete_dt = tgt.effective_from
+	WHERE
+		stg.terminal_id IS NULL""")
+
+# обновляем effective_to удаляемой записи в таблице-приемнике SCD2
+curs_tgt.execute("""UPDATE
+	de11tm.ykir_dwh_dim_terminals_hist AS targ
+SET
+	effective_to = tmp.time_delete - '1second'::interval
+FROM
+	(
+		SELECT
+			tgt.terminal_id
+		,    rd.time_delete
+		,    tgt.effective_from
+		,    tgt.effective_to
+		FROM
+			de11tm.ykir_dwh_dim_terminals_hist AS tgt
+		JOIN
+			row_del_terminals AS rd
+					ON rd.terminal_id = tgt.terminal_id
+		WHERE
+			tgt.effective_from < rd.time_delete
+	) AS tmp
+WHERE
+	targ.terminal_id = tmp.terminal_id AND
+	targ.effective_from = tmp.effective_from""")
+
+
+# %%
+# вставляем удаляемую запись в таблицу-приемник SCD2
+curs_tgt.execute("""INSERT INTO de11tm.ykir_dwh_dim_terminals_hist(
+	terminal_id
+,	terminal_type
+,	terminal_city
+,	terminal_address
+,	effective_from
+,	effective_to
+,	deleted_flg
+)
+SELECT
+	terminal_id
+,	terminal_type
+,	terminal_city
 	,	terminal_address
-	,	time_delete
-	,	'5999-12-31 00:00:00'
-	,	1
-	FROM
-		row_del_terminals""")
+,	time_delete
+,	'5999-12-31 00:00:00'
+,	1
+FROM
+	row_del_terminals""")
 
 
-	# добавление в таблицу с метаданными информации о последней заливке данных из stg в таблицу-приемник SCD2
-	curs_tgt.execute("""INSERT INTO de11tm.ykir_meta_dim_terminals(
-		max_update_dt
-	)
-	SELECT
-		max(date_file) max_update_dt
-	FROM
-		de11tm.ykir_stg_dim_terminals""")
+# добавление в таблицу с метаданными информации о последней заливке данных из stg в таблицу-приемник SCD2
+curs_tgt.execute("""INSERT INTO de11tm.ykir_meta_dim_terminals(
+	max_update_dt
+)
+SELECT
+	max(date_file) max_update_dt
+FROM
+	de11tm.ykir_stg_dim_terminals""")
 
-	# Заархивируем использованный файл
+# Заархивируем использованный файл
 
-	# название архивного файла
-	name_archive = filename[-23:-5] + '.backup'
+# название архивного файла
+name_archive = filename[-23:-5] + '.backup'
 
-	# полный путь к архивному файлу
-	dst_dir = dir_path + 'archive/' + name_archive
+# полный путь к архивному файлу
+dst_dir = dir_path + 'archive/' + name_archive
 
-	# перенесём файл в архив
-	os.rename(filename, dst_dir)
-	
-except FileNotFoundError as e: 
-	# Открываем файл, чтобы записать сообщение
-	with open(dir_path + 'error_log.txt', 'a') as f:
-		# 1-я строка - timestamp (время)
-		f.write(str(datetime.datetime.now()) + '\n')
-		# 2-я строка - type of error (type of exception)
-		f.write(str(type(e)) + '\n')
-		# 3-я строка - error message (message of exception)
-		f.write('файла terminals_NNNNNNNN.xlsx в каталоге нет' + '\n')
-		# 4-я строкa - separator (для "краcоты")
-		f.write('-'*50 + '\n')
-except NotADirectoryError as e:
-	with open(dir_path + 'error_log.txt', 'a') as f:
-		f.write(str(datetime.datetime.now()) + '\n')
-		f.write(str(type(e)) + '\n')
-		f.write('больше одного файла terminals_NNNNNNNN.xlsx в каталоге' + '\n')
-		f.write('-'*50 + '\n')
+# перенесём файл в архив
+os.rename(filename, dst_dir)
+
 
 # %% [markdown]
 # #### 2.5 Для таблицы fact_passport_blacklist
 # 
 
 # %%
+# подготовка стейджинга
+curs_tgt.execute("""delete from de11tm.ykir_stg_fact_passport_blacklist""")
+
 # найдём файл passport_blacklist_NNNNNNNN.xlsx в каталоге
 filename = glob.glob(dir_path + 'data/passport_blacklist_*')
 
@@ -998,7 +978,8 @@ except NotADirectoryError as e:
 # 
 
 # %%
-# Начальная загрузка для fact_transactions
+# подготовка стейджинга
+curs_tgt.execute("""delete from de11tm.ykir_stg_fact_transactions""")
 
 # найдём файл transactions_NNNNNNNN.xlsx в каталоге
 filename = glob.glob(dir_path + 'data/transactions_*')
@@ -1013,45 +994,46 @@ try:
 
     # Заливаем данные из dataframe в stg-таблицу
     curs_tgt.executemany("""INSERT INTO de11tm.ykir_stg_fact_transactions(
-		transaction_id
-	,	transaction_date
-	,	amount
-	,	card_num
-	,	oper_type
-	,	oper_result
-	,	terminal
-	)
-	VALUES(%s, cast(%s AS timestamp), %s, %s, %s, %s, %s)""", df.values.tolist())
+        transaction_id
+    ,	transaction_date
+    ,	amount
+    ,	card_num
+    ,	oper_type
+    ,	oper_result
+    ,	terminal
+    )
+    VALUES(%s, cast(%s AS timestamp), %s, %s, %s, %s, %s)""", df.values.tolist())
+    # Обработка INSERT таблицы fact_transactions
 
     # Заливаем данные из stg-таблицы в таблицу-приемник SCD2
     curs_tgt.execute("""INSERT INTO de11tm.ykir_dwh_fact_transactions(
-		trans_id
-	,	trans_date
-	,	card_num
-	,	oper_type
-	,	amt
-	,	oper_result
-	,	terminal
-	)
-	SELECT
-		transaction_id
-	,	transaction_date
-	,	regexp_replace(card_num, '\s', '', 'g') AS card_num
-	,	oper_type
-	,	amount
-	,	oper_result
-	,	terminal
-	FROM
-		de11tm.ykir_stg_fact_transactions""")
+        trans_id
+    ,	trans_date
+    ,	card_num
+    ,	oper_type
+    ,	amt
+    ,	oper_result
+    ,	terminal
+    )
+    SELECT
+        transaction_id
+    ,	transaction_date
+    ,	regexp_replace(card_num, '\s', '', 'g') AS card_num
+    ,	oper_type
+    ,	amount
+    ,	oper_result
+    ,	terminal
+    FROM
+        de11tm.ykir_stg_fact_transactions""")
 
     # добавление в таблицу с метаданными информации о последней заливке данных из stg в таблицу-приемник SCD2
     curs_tgt.execute("""INSERT INTO de11tm.ykir_meta_fact_transactions(
-		max_update_dt
-	)
-	SELECT
-		max(transaction_date) AS max_update_dt
-	FROM
-		de11tm.ykir_stg_fact_transactions""")
+        max_update_dt
+    )
+    SELECT
+        max(transaction_date) max_update_dt
+    FROM
+        de11tm.ykir_stg_fact_transactions""")
 
     # Заархивируем использованный файл
 
@@ -1064,24 +1046,23 @@ try:
     # перенесём файл в архив
     os.rename(filename, dst_dir)
 
-except FileNotFoundError as e:
-    # Открываем файл, чтобы записать сообщение
-    with open(dir_path + 'error_log.txt', 'a') as f:
-        # 1-я строка - timestamp (время)
-        f.write(str(datetime.datetime.now()) + '\n')
-        # 2-я строка - type of error (type of exception)
-        f.write(str(type(e)) + '\n')
-        # 3-я строка - error message (message of exception)
-        f.write('файла transactions_NNNNNNNN.xlsx в каталоге нет' + '\n')
-        # 4-я строкa - separator (для "краcоты")
-        f.write('-'*50 + '\n')
+except FileNotFoundError as e: 
+	# Открываем файл, чтобы записать сообщение
+	with open(dir_path + 'error_log.txt', 'a') as f:
+		# 1-я строка - timestamp (время)
+		f.write(str(datetime.datetime.now()) + '\n')
+		# 2-я строка - type of error (type of exception)
+		f.write(str(type(e)) + '\n')
+		# 3-я строка - error message (message of exception)
+		f.write('файла transactions_NNNNNNNN.xlsx в каталоге нет' + '\n')
+		# 4-я строкa - separator (для "краcоты")
+		f.write('-'*50 + '\n')
 except NotADirectoryError as e:
-    with open(dir_path + 'error_log.txt', 'a') as f:
-        f.write(str(datetime.datetime.now()) + '\n')
-        f.write(str(type(e)) + '\n')
-        f.write('больше одного файла transactions_NNNNNNNN.xlsx в каталоге' + '\n')
-        f.write('-'*50 + '\n')
-
+	with open(dir_path + 'error_log.txt', 'a') as f:
+		f.write(str(datetime.datetime.now()) + '\n')
+		f.write(str(type(e)) + '\n')
+		f.write('больше одного файла fact_transactions_NNNNNNNN.xlsx в каталоге' + '\n')
+		f.write('-'*50 + '\n')
 
 # %% [markdown]
 # ## 3. Создание отчёта
@@ -1244,6 +1225,65 @@ WHERE
 # 4. Попытка подбора суммы.
 # В течение 20 минут проходит более 3х операций со следующим шаблоном – каждая последующая меньше предыдущей,
 # при этом отклонены все кроме последней. Последняя операция (успешная) в такой цепочке считается мошеннической.
+
+curs_tgt.execute("""INSERT INTO de11tm.ykir_rep_fraud(
+     event_dt
+,    passport
+,    fio
+,    phone
+,    event_type
+,    report_dt
+)
+WITH cte AS (
+     SELECT
+          *
+     ,    CASE
+               WHEN oper_result = 'SUCCESS' AND
+                    lag(oper_result) OVER(PARTITION BY trans.card_num ORDER BY trans_date) = 'REJECT' AND
+                    lag(oper_result, 2) OVER(PARTITION BY trans.card_num ORDER BY trans_date) = 'REJECT' AND
+                    lag(oper_result, 3) OVER(PARTITION BY trans.card_num ORDER BY trans_date) = 'REJECT' AND
+                    lag(amt) OVER(PARTITION BY trans.card_num ORDER BY trans_date) > amt AND
+                    lag(amt, 2) OVER(PARTITION BY trans.card_num ORDER BY trans_date) > lag(amt) OVER(PARTITION BY trans.card_num ORDER BY trans_date) AND
+                    lag(amt, 3) OVER(PARTITION BY trans.card_num ORDER BY trans_date) > lag(amt, 2) OVER(PARTITION BY trans.card_num ORDER BY trans_date) AND
+                    trans_date - lag(trans_date, 3) OVER(PARTITION BY trans.card_num ORDER BY trans_date) <= '00:20:00' THEN
+                    1
+               ELSE
+                    0
+          END fraud_4
+     FROM
+          de11tm.ykir_dwh_fact_transactions AS trans
+     LEFT JOIN
+          de11tm.ykir_dwh_dim_cards_hist AS cards
+               ON trans.card_num = cards.card_num
+     LEFT JOIN
+          de11tm.ykir_dwh_dim_accounts_hist AS accounts
+               ON cards.account_num = accounts.account_num
+     LEFT JOIN
+          de11tm.ykir_dwh_dim_clients_hist AS clients
+               ON accounts.client = clients.client_id
+)
+SELECT
+     trans_date AS event_dt
+,    passport_num AS passport
+,    concat(
+          last_name
+     ,    ' '
+     ,    first_name
+     ,    ' '
+     ,    patronymic
+     ) AS fio
+,    phone
+,    '4' AS event_type
+,    (
+          SELECT
+               max(trans_date)::date
+          FROM
+               de11tm.ykir_dwh_fact_transactions
+     ) AS report_dt
+FROM
+     cte
+WHERE
+     fraud_4 = 1""")
 
 # %%
 # выполняем транзакцию

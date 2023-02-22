@@ -21,6 +21,7 @@ conn_src = ps.connect(
     password= 'bank_etl_password'
 )
 
+
 # %%
 # Подключаемся к приемнику - Database 'edu'
 conn_tgt = ps.connect(
